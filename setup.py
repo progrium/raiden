@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os
 from setuptools import Command
-from setuptools import setup
+from setuptools import setup, find_packages
 
 def shell(cmdline):
     args = cmdline.split(' ')
@@ -30,7 +30,7 @@ setup(
     author='Jeff Lindsay',
     author_email='jeff.lindsay@twilio.com',
     description='',
-    packages=['raiden','raiden.gateways'],
+    packages=find_packages(),
     install_requires=['gevent_tools', 'gevent_zeromq'],
     data_files=[],
     cmdclass={
