@@ -31,7 +31,7 @@ setup(
     author_email='jeff.lindsay@twilio.com',
     description='',
     packages=['raiden'],
-    install_requires=['gevent_tools'],
+    install_requires=['gevent_tools', 'gevent_zeromq'],
     data_files=[],
     cmdclass={
         'test': TestCommand,
