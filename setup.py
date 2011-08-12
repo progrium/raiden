@@ -30,7 +30,7 @@ setup(
     author='Jeff Lindsay',
     author_email='jeff.lindsay@twilio.com',
     description='',
-    packages=['raiden'],
+    packages=['raiden','raiden.gateways'],
     install_requires=['gevent_tools', 'gevent_zeromq'],
     data_files=[],
     cmdclass={
