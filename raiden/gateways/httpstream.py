@@ -17,22 +17,21 @@ class HttpStreamGateway(Service):
         self.add_service(self.wsgi_server)
     
     def do_start(self):
+        print "Gateway listening on %s..." % self.port
         self.backend.cluster.add('127.0.0.1')
         self.backend.subscribe('test', self.subscription)
-        self.spawn_later(1, self.pub)
-        self.spawn_later(3, self.pub)
+        self.pub()
     
     def pub(self):
-        self.backend.publish('test', 'message1')
-        self.backend.publish('test', 'message2')
-        self.backend.publish('test2', 'message3 not really')
+        self.backend.publish('test', 'hello')
+        self.spawn_later(3, self.pub)
     
     def app(self, env, start_response):
-        write = start_response('200 OK', [('Content-Type', 'text/html')])
+        start_response('200 OK', [('Content-Type', 'text/html')])
         for msgs in self.subscription:
-            msgs.append('')
-            write('\n'.join(msgs))
-        return []
+            print "Writing %s messages" % len(msgs)
+            yield '\n'.join(msgs)
+            yield '\n'
     
 class Streamer(object):
     def __init__(self, env, start_response):
