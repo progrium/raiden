@@ -24,6 +24,13 @@ class CoverageCommand(GToolsCommand):
     def run(self):
         shell("nosetests --with-coverage --cover-package=raiden")
 
+class CleanCommand(GToolsCommand):
+    description = "delete stupid shit left around"
+    files = "Raiden.egg-info build serviced.log serviced.pid"
+        
+    def run(self):
+        shell("rm -rf %s" % self.files)
+
 setup(
     name='Raiden',
     version='0.1.0',
@@ -35,5 +42,6 @@ setup(
     data_files=[],
     cmdclass={
         'test': TestCommand,
-        'coverage': CoverageCommand,}
+        'coverage': CoverageCommand,
+        'clean': CleanCommand,}
 )
