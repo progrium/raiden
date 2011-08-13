@@ -70,7 +70,7 @@ class MessagingBackend(Service):
         self.router.subscribe(channel, subscriber)
     
     def unsubscribe(self, channel, subscriber):
-        self.router.subscribe(channel, subscriber)
+        self.router.unsubscribe(channel, subscriber)
 
 class MessagePublisher(Service):
     # TODO: batching socket sends based on publish frequency
@@ -133,7 +133,7 @@ class MessageRouter(Service):
         self.channels[channel].remove(subscriber)
         
         # Clean up counts and ChannelDispatchers with no subscribers
-        self.subscriber_counts[channel] += collections.Counter()
+        self.subscriber_counts += collections.Counter()
         if not self.subscriber_counts[channel]:
             del self.channels[channel]
     
