@@ -1,7 +1,9 @@
 import collections
 import time
+import json
 
-import gevent
+import msgpack
+import gevent.queue
 from gevent_zeromq import zmq
 
 from gevent_tools.config import Option
@@ -11,6 +13,51 @@ from gevent_tools.service import require_ready
 context = zmq.Context()
 
 class MessagingException(Exception): pass
+
+class Subscription(gevent.queue.Queue):
+    keepalive_secs = Option('keepalive', default=30)
+    
+    def __init__(self, router, channel, filters=None):
+        super(Subscription, self).__init__(maxsize=64)
+        self.channel = channel
+        self.router = router
+        self.filters = filters
+        router.subscribe(channel, self)
+        router.spawn(self._keepalive)
+    
+    def _keepalive(self):
+        while self.router:
+            self.put(None)
+            gevent.sleep(self.keepalive_secs)
+    
+    def cancel(self):
+        self.router.unsubscribe(self.channel, self)
+        self.router = None
+    
+    def put(self, messages):
+        if messages is not None: 
+            # Perform any filtering
+            if self.filters and len(messages):
+                print "Filtering"
+                def _filter(message):
+                    if not isinstance(message, dict): return True
+                    # OR across multivalues of a param, AND across params
+                    matches = []
+                    for key in message:
+                        values = [v for k,v in self.filters if k == key]
+                        if len(values):
+                            matches.append(message[key] in values)
+                    return all(matches)
+                messages = filter(_filter, messages)
+                if not len(messages): return
+            # Serialize to JSON strings
+            messages = map(json.dumps, messages)
+        super(Subscription, self).put(messages)
+    
+    def __del__(self):
+        if self.router:
+            self.cancel()
+        
 
 class Observable(object):
     # TODO: move to a util module
@@ -66,11 +113,8 @@ class MessagingBackend(Service):
     def publish(self, channel, message):
         self.publisher.publish(channel, message)
     
-    def subscribe(self, channel, subscriber):
-        self.router.subscribe(channel, subscriber)
-    
-    def unsubscribe(self, channel, subscriber):
-        self.router.unsubscribe(channel, subscriber)
+    def subscribe(self, channel, filters=None):
+        return Subscription(self.router, channel, filters)
 
 class MessagePublisher(Service):
     # TODO: batching socket sends based on publish frequency
@@ -92,7 +136,7 @@ class MessagePublisher(Service):
     
     @require_ready
     def publish(self, channel, message):
-        self.socket.send_multipart([channel, message])
+        self.socket.send_multipart([channel.lower(), msgpack.packb(message)])
 
 class MessageRouter(Service):
     max_channels = Option('max_channels', default=65536)
@@ -110,6 +154,8 @@ class MessageRouter(Service):
         self.spawn(self._listen)
     
     def subscribe(self, channel, subscriber):
+        channel = channel.lower()
+        
         # Initialize channel if necessary
         if not self.channels.get(channel):
             if len(self.channels) >= self.max_channels:
@@ -128,6 +174,8 @@ class MessageRouter(Service):
         self.channels[channel].add(subscriber)
     
     def unsubscribe(self, channel, subscriber):
+        channel = channel.lower()
+        
         self.socket.setsockopt(zmq.UNSUBSCRIBE, channel)
         self.subscriber_counts[channel] -= 1
         self.channels[channel].remove(subscriber)
@@ -141,7 +189,7 @@ class MessageRouter(Service):
         while True:
             channel, message = self.socket.recv_multipart()
             if self.subscriber_counts[channel]:
-                self.channels[channel].send(message)
+                self.channels[channel].send(msgpack.unpackb(message))
 
 class ChannelDispatcher(object):
     def __init__(self, router):
