@@ -1,3 +1,4 @@
+build
 serviced.log
 serviced.pid
 *.egg-info
