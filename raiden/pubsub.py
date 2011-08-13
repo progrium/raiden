@@ -38,10 +38,12 @@ class Subscription(gevent.queue.Queue):
         if messages is not None: 
             # Perform any filtering
             if self.filters and len(messages):
-                print "Filtering"
                 def _filter(message):
-                    if not isinstance(message, dict): return True
-                    # OR across multivalues of a param, AND across params
+                    # Make sure all keys in filter are in message
+                    required_keys = set([k for k,v in self.filters])
+                    if not required_keys.issubset(message.keys()): 
+                        return False
+                    # OR across filters with same key, AND across keys
                     matches = []
                     for key in message:
                         values = [v for k,v in self.filters if k == key]

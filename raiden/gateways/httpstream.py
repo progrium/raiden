@@ -14,6 +14,8 @@ from raiden.pubsub import Subscription
 
 class HttpStreamGateway(Service):
     port = Option('http_port')
+    channel_builder = Option('http_channel_builder', 
+                        default=lambda req: '%s%s' % (req.host, req.path))
     
     def __init__(self, backend):
         self.backend = backend
@@ -38,8 +40,19 @@ class HttpStreamGateway(Service):
     
     def handle_publish(self, env, start_response):
         request = webob.Request(env)
+        if request.content_type.endswith('/json'):
+            try:
+                message = json.loads(request.body)
+            except ValueError:
+                start_response('400 Invalid JSON', [
+                    ('Content-Type', 'text/plain')])
+                return ["Invalid JSON"]
+        elif request.content_type.startswith('text/'):
+            message = {'_': request.body}
+        else:
+            message = dict(request.str_POST)
         self.backend.publish(
-            '%s%s' % (request.host, request.path), dict(request.POST))
+            self.channel_builder(request), message)
         start_response('200 OK', [
             ('Content-Type', 'text/plain')])
         return ["OK\n"]
@@ -48,7 +61,7 @@ class HttpStreamGateway(Service):
         request = webob.Request(env)
         filters = request.str_GET.items()
         subscription = self.backend.subscribe(
-            '%s%s' % (request.host, request.path), filters=filters)
+            self.channel_builder(request), filters=filters)
         yield subscription # send to container to include on disconnect
         
         start_response('200 OK', [

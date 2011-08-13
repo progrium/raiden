@@ -1,5 +1,4 @@
 - jsonp middleware
-- publish over http, json+urlencoded+text
 - websocket gateway
 - test pipelining
 
