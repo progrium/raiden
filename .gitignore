@@ -1,0 +1,4 @@
+serviced.log
+serviced.pid
+*.egg-info
+**/*.pyc
