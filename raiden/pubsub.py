@@ -35,6 +35,7 @@ class Subscription(gevent.queue.Queue):
         self.router = None
     
     def put(self, messages):
+        # Always allow None since it represents a keepalive
         if messages is not None: 
             # Perform any filtering
             if self.filters and len(messages):
@@ -119,7 +120,9 @@ class MessagingBackend(Service):
         return Subscription(self.router, channel, filters)
 
 class MessagePublisher(Service):
-    # TODO: batching socket sends based on publish frequency
+    # TODO: batching socket sends based on publish frequency.
+    # Although that probably won't provide benefit unless under
+    # SUPER high load.
     
     def __init__(self, cluster, port):
         self.cluster = cluster

@@ -1,6 +1,4 @@
-- jsonp middleware
 - websocket gateway
-- test pipelining
 
 - code metrics
 - performance testing
