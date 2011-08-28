@@ -11,6 +11,7 @@ def service():
         def __init__(self):
             self.backend = MessagingBackend()
             self.frontend = HttpStreamGateway(self.backend)
+            
             self.add_service(self.backend)
             self.add_service(self.frontend)
         
