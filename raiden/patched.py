@@ -1,0 +1,1 @@
+from ws4py.servers.geventserver import UpgradableWSGIHandler as WSGIHandler
