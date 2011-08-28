@@ -9,6 +9,7 @@ import webob
 from gevent_tools.config import Option
 from gevent_tools.service import Service
 
+import raiden.patched
 from raiden.pubsub import MessagingBackend
 from raiden.pubsub import Subscription
 
@@ -31,14 +32,14 @@ class HttpStreamGateway(Service):
     
     def handle(self, env, start_response):
         if env['REQUEST_METHOD'] == 'POST':
-            return self.handle_publish(env, start_response)
+            return self.handle_post(env, start_response)
         elif env['REQUEST_METHOD'] == 'GET':
             return self.handle_stream(env, start_response)
         else:
             start_response('405 Method not allowed', [])
             return ["Method not allowed\n"]
     
-    def handle_publish(self, env, start_response):
+    def handle_post(self, env, start_response):
         request = webob.Request(env)
         if request.content_type.endswith('/json'):
             try:
@@ -88,7 +89,7 @@ class _WSGIServer(gevent.pywsgi.WSGIServer):
     be passed to the disconnect handler to identify the request.
     """
     
-    class handler_class(gevent.pywsgi.WSGIHandler):
+    class handler_class(raiden.patched.WSGIHandler):
         def process_result(self):
             if hasattr(self.result, 'next'):
                 request_obj = self.result.next()
@@ -97,8 +98,10 @@ class _WSGIServer(gevent.pywsgi.WSGIServer):
                 except socket.error, ex:
                     # Broken pipe, connection reset by peer
                     if ex[0] in (errno.EPIPE, errno.ECONNRESET):
+                        self.close_connection = True
                         if hasattr(self.server.gateway, 'handle_disconnect'):
-                            self.server.gateway.handle_disconnect(self.socket, request_obj)
+                            self.server.gateway.handle_disconnect(
+                                                    self.socket, request_obj)
                     else:
                         raise
             else:
