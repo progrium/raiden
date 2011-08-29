@@ -19,7 +19,7 @@ class Subscription(gevent.queue.Queue):
     
     def __init__(self, router, channel, filters=None):
         super(Subscription, self).__init__(maxsize=64)
-        self.channel = channel
+        self.channel = str(channel)
         self.router = router
         self.filters = filters
         router.subscribe(channel, self)
@@ -141,7 +141,7 @@ class MessagePublisher(Service):
     
     @require_ready
     def publish(self, channel, message):
-        self.socket.send_multipart([channel.lower(), msgpack.packb(message)])
+        self.socket.send_multipart([str(channel).lower(), msgpack.packb(message)])
 
 class MessageRouter(Service):
     max_channels = Option('max_channels', default=65536)
@@ -159,7 +159,7 @@ class MessageRouter(Service):
         self.spawn(self._listen)
     
     def subscribe(self, channel, subscriber):
-        channel = channel.lower()
+        channel = str(channel).lower()
         
         # Initialize channel if necessary
         if not self.channels.get(channel):
@@ -179,7 +179,7 @@ class MessageRouter(Service):
         self.channels[channel].add(subscriber)
     
     def unsubscribe(self, channel, subscriber):
-        channel = channel.lower()
+        channel = str(channel).lower()
         
         self.socket.setsockopt(zmq.UNSUBSCRIBE, channel)
         self.subscriber_counts[channel] -= 1

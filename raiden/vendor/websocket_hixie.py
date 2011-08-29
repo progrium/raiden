@@ -7,9 +7,8 @@ from gevent.pywsgi import WSGIHandler
 from gevent.event import Event
 from gevent.coros import Semaphore
 
-# This class implements the Websocket protocol draft version as of May 23, 2010
-# The version as of August 6, 2010 will be implementend once Firefox or
-# Webkit-trunk support this version.
+# This module implements the Websocket protocol draft version as of May 23, 2010
+# based on the gevent-websocket project by Jeffrey Gelens
 
 class WebSocketError(error):
     pass
@@ -22,7 +21,6 @@ class WebSocket(object):
         self.protocol = environ.get('HTTP_SEC_WEBSOCKET_PROTOCOL', 'unknown')
         self.path = environ.get('PATH_INFO')
         self._writelock = Semaphore(1)
-        self.finished = Event()
 
     def send(self, message):
         if isinstance(message, unicode):
@@ -34,6 +32,14 @@ class WebSocket(object):
 
         with self._writelock:
             self.socket.sendall("\x00" + message + "\xFF")
+
+    @property
+    def terminated(self):
+        """
+        Returns True if both the client and server have been
+        marked as terminated.
+        """
+        return self.socket is None
 
     def detach(self):
         self.socket = None
@@ -48,7 +54,6 @@ class WebSocket(object):
             except Exception:
                 pass
             self.detach()
-        self.finished.set()
 
 
     def _message_length(self):
@@ -83,7 +88,7 @@ class WebSocket(object):
         return ''.join(bytes)
 
     def receive(self):
-        while self.socket is not None:
+        while not self.terminated:
             frame_str = self.rfile.read(1)
             if not frame_str:
                 # Connection lost?
@@ -120,9 +125,12 @@ class WebSocketUpgradeMiddleware(object):
         self.handler = handler
 
     def __call__(self, environ, start_response):
-        self.socket = socket
+        if environ.get('upgrade.protocol') != 'websocket':
+            raise WebSocketError("Not a websocket upgrade")
+        
         self.environ = environ
-        self.websocket = WebSocket(socket, environ)
+        self.socket = self.environ.get('upgrade.socket')
+        self.websocket = WebSocket(self.socket, self.environ)
 
         headers = [
             ("Upgrade", "WebSocket"),
@@ -155,7 +163,9 @@ class WebSocketUpgradeMiddleware(object):
         else:
             raise WebSocketError("WebSocket version not supported")
 
-        self.handler(self.websocket)
+        self.environ['websocket.version'] = 'hixie%s' % version
+
+        self.handler(self.websocket, self.environ)
         #self.websocket.finished.wait()
 
 

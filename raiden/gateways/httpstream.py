@@ -14,7 +14,7 @@ from raiden.pubsub import MessagingBackend
 from raiden.pubsub import Subscription
 
 class HttpStreamGateway(Service):
-    port = Option('http_port')
+    port = Option('http_port', default=80)
     channel_builder = Option('http_channel_builder', 
                         default=lambda req: '%s%s' % (req.host, req.path))
     
@@ -32,14 +32,14 @@ class HttpStreamGateway(Service):
     
     def handle(self, env, start_response):
         if env['REQUEST_METHOD'] == 'POST':
-            return self.handle_post(env, start_response)
+            return self.handle_publish(env, start_response)
         elif env['REQUEST_METHOD'] == 'GET':
-            return self.handle_stream(env, start_response)
+            return self.handle_subscribe(env, start_response)
         else:
             start_response('405 Method not allowed', [])
             return ["Method not allowed\n"]
     
-    def handle_post(self, env, start_response):
+    def handle_publish(self, env, start_response):
         request = webob.Request(env)
         if request.content_type.endswith('/json'):
             try:
@@ -58,7 +58,7 @@ class HttpStreamGateway(Service):
             ('Content-Type', 'text/plain')])
         return ["OK\n"]
     
-    def handle_stream(self, env, start_response):
+    def handle_subscribe(self, env, start_response):
         request = webob.Request(env)
         filters = request.str_GET.items()
         subscription = self.backend.subscribe(
